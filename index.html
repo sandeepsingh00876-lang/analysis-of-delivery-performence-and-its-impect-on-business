@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delivery Intelligence | Operations Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --ink: #172a3a; --muted: #6c7d88; --page: #f3f6f4; --panel: #fff; --line: #dbe5e0; --teal: #087f8c; --coral: #ec765d; --gold: #e4a93a; --mint: #dff1e9; }
+        * { box-sizing: border-box; }
+        body { margin: 0; color: var(--ink); font-family: "DM Sans", sans-serif; background: radial-gradient(circle at 85% 0%, #e1f0eb 0, transparent 30%), var(--page); }
+        .shell { width: min(1440px, calc(100% - 48px)); margin: 0 auto; padding: 42px 0 60px; }
+        .eyebrow { color: var(--teal); font-size: 12px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+        h1, h2, h3 { font-family: "Space Grotesk", sans-serif; margin: 0; }
+        h1 { max-width: 700px; font-size: clamp(32px, 5vw, 64px); line-height: .98; letter-spacing: -1px; margin: 12px 0 16px; }
+        .intro { color: var(--muted); font-size: 16px; max-width: 650px; line-height: 1.6; margin: 0; }
+        .status { color: var(--teal); font-size: 13px; margin-top: 20px; }
+        .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 38px 0 34px; }
+        .kpi, .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 12px 30px rgba(23, 42, 58, .05); }
+        .kpi { padding: 20px; min-height: 116px; }
+        .kpi-label { color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+        .kpi-value { font-family: "Space Grotesk", sans-serif; font-size: 30px; font-weight: 700; margin: 12px 0 4px; }
+        .kpi-note { color: var(--muted); font-size: 12px; }
+        .section { margin-top: 34px; }
+        .section-head { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 14px; }
+        .section-number { color: var(--coral); font: 700 13px "Space Grotesk", sans-serif; }
+        h2 { font-size: 24px; margin-top: 6px; }
+        .section-description { color: var(--muted); font-size: 13px; max-width: 500px; text-align: right; line-height: 1.5; }
+        .grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; }
+        .panel { padding: 20px; min-width: 0; }
+        .panel-title { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 18px; }
+        .panel-title h3 { font-size: 16px; }
+        .panel-title span { color: var(--muted); font-size: 12px; }
+        .chart-wrap { height: 330px; position: relative; }
+        .tall { height: 390px; }
+        .full { grid-column: 1 / -1; }
+        .insight { border-left: 3px solid var(--coral); background: #fff8f4; padding: 12px 14px; color: #6c5148; font-size: 13px; line-height: 1.5; margin-top: 14px; }
+        footer { color: var(--muted); font-size: 12px; padding-top: 34px; }
+        @media (max-width: 900px) { .shell { width: min(100% - 30px, 680px); padding-top: 28px; } .kpis { grid-template-columns: repeat(2, 1fr); } .grid { grid-template-columns: 1fr; } .full { grid-column: auto; } .section-head { display: block; } .section-description { text-align: left; margin-top: 8px; } }
+        @media (max-width: 480px) { .kpis { grid-template-columns: 1fr; } .kpi { min-height: 96px; } .chart-wrap, .tall { height: 300px; } }
+    </style>
+</head>
+<body>
+    <main class="shell">
+        <header>
+            <div class="eyebrow">Operations intelligence / delivery network</div>
+            <h1>Where delivery performance is won or lost.</h1>
+            <p class="intro">A focused read of product demand, seller execution, customer sentiment, and state-to-state delay patterns.</p>
+            <div class="status" id="status">Loading source files...</div>
+        </header>
+        <section class="kpis" aria-label="Executive summary">
+            <div class="kpi"><div class="kpi-label">Product orders</div><div class="kpi-value" id="totalOrders">--</div><div class="kpi-note">Across analyzed categories</div></div>
+            <div class="kpi"><div class="kpi-label">Weighted delivery time</div><div class="kpi-value" id="avgDelivery">--</div><div class="kpi-note">Days, weighted by orders</div></div>
+            <div class="kpi"><div class="kpi-label">Top product</div><div class="kpi-value" id="topProduct">--</div><div class="kpi-note" id="topProductNote">Highest order volume</div></div>
+            <div class="kpi"><div class="kpi-label">Most delayed route</div><div class="kpi-value" id="topRoute">--</div><div class="kpi-note" id="topRouteNote">Average delay</div></div>
+        </section>
+
+        <section class="section">
+            <div class="section-head"><div><div class="section-number">01 / Demand</div><h2>Product performance</h2></div><div class="section-description">Find the categories carrying volume and the categories consuming delivery time.</div></div>
+            <div class="grid"><article class="panel full"><div class="panel-title"><h3>Orders and average delivery days by category</h3><span>Top 15 categories by orders</span></div><div class="chart-wrap tall"><canvas id="productChart"></canvas></div></article></div>
+        </section>
+
+        <section class="section">
+            <div class="section-head"><div><div class="section-number">02 / Execution</div><h2>Seller performance</h2></div><div class="section-description">Prioritize high-volume sellers where delivery delay is furthest from target.</div></div>
+            <div class="grid"><article class="panel"><div class="panel-title"><h3>Top sellers by order volume</h3><span>Delay shown on hover</span></div><div class="chart-wrap"><canvas id="sellerChart"></canvas></div><div class="insight" id="sellerInsight">Analyzing seller concentration...</div></article><article class="panel"><div class="panel-title"><h3>Delay distribution</h3><span>Green = shortest / red = longest</span></div><div class="chart-wrap"><canvas id="delayChart"></canvas></div></article></div>
+        </section>
+
+        <section class="section">
+            <div class="section-head"><div><div class="section-number">03 / Customer voice</div><h2>Delivery experience</h2></div><div class="section-description">Review scores by delivery duration reveal where lateness starts to damage satisfaction.</div></div>
+            <div class="grid"><article class="panel full"><div class="panel-title"><h3>Delivery days versus average review score</h3><span>Aggregated from every review observation</span></div><div class="chart-wrap tall"><canvas id="reviewChart"></canvas></div><div class="insight" id="reviewInsight">Calculating the customer experience signal...</div></article></div>
+        </section>
+
+        <section class="section">
+            <div class="section-head"><div><div class="section-number">04 / Network</div><h2>State-to-state delays</h2></div><div class="section-description">The routes below are ranked by average delay, with volume retained for operational context.</div></div>
+            <div class="grid"><article class="panel full"><div class="panel-title"><h3>Most delayed delivery routes</h3><span>Top 15 routes by average delay</span></div><div class="chart-wrap tall"><canvas id="routeChart"></canvas></div></article></div>
+        </section>
+        <footer>Source files: four local CSV extracts. Figures are calculated in the browser and refresh when the page reloads.</footer>
+    </main>
+    <script src="script.js"></script>
+</body>
+</html>
